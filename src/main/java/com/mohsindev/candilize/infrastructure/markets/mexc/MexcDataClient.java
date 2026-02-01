@@ -37,11 +37,11 @@ public class MexcDataClient implements CandleDataService<MexcKline> {
 
         return MexcKline.builder()
                 .openTime(Instant.ofEpochMilli(((Number) k.get(0)).longValue()))
-                .open(new BigDecimal(((Number)k.get(1)).longValue()))
-                .high(new BigDecimal(((Number)k.get(2)).longValue()))
-                .low(new BigDecimal(((Number)k.get(3)).longValue()))
-                .close(new BigDecimal(((Number)k.get(4)).longValue()))
-                .volume(new BigDecimal(((Number)k.get(5)).longValue()))
+                .open(new BigDecimal((k.get(1)).toString()))
+                .high(new BigDecimal((k.get(2)).toString()))
+                .low(new BigDecimal((k.get(3)).toString()))
+                .close(new BigDecimal((k.get(4)).toString()))
+                .volume(new BigDecimal((k.get(5)).toString()))
                 .closeTime(Instant.ofEpochMilli(((Number) k.get(6)).longValue()))
                 .build();
 
