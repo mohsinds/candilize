@@ -1,4 +1,4 @@
-package com.mohsindev.candilize.infrastructure.markets;
+package com.mohsindev.candilize.infrastructure.market;
 
 import java.util.List;
 

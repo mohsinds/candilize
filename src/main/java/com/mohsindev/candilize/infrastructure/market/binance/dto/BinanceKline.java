@@ -1,4 +1,4 @@
-package com.mohsindev.candilize.infrastructure.markets.binance.dto;
+package com.mohsindev.candilize.infrastructure.market.binance.dto;
 
 import lombok.Builder;
 import lombok.Data;

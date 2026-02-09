@@ -1,9 +1,9 @@
-package com.mohsindev.candilize.infrastructure.markets.mexc;
+package com.mohsindev.candilize.infrastructure.market.mexc;
 
 import com.mohsindev.candilize.domain.Ohlcv;
 import com.mohsindev.candilize.enums.CandleInterval;
-import com.mohsindev.candilize.infrastructure.markets.KlineToOhlcvAdapter;
-import com.mohsindev.candilize.infrastructure.markets.mexc.dto.MexcKline;
+import com.mohsindev.candilize.infrastructure.market.KlineToOhlcvAdapter;
+import com.mohsindev.candilize.infrastructure.market.mexc.dto.MexcKline;
 import org.springframework.stereotype.Component;
 
 /**

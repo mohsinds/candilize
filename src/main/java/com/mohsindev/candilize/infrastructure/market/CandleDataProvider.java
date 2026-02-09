@@ -1,4 +1,4 @@
-package com.mohsindev.candilize.infrastructure.markets;
+package com.mohsindev.candilize.infrastructure.market;
 
 import com.mohsindev.candilize.domain.Ohlcv;
 import com.mohsindev.candilize.enums.CandleInterval;

@@ -1,7 +1,7 @@
-package com.mohsindev.candilize.infrastructure.markets.binance;
+package com.mohsindev.candilize.infrastructure.market.binance;
 
-import com.mohsindev.candilize.infrastructure.markets.CandleDataService;
-import com.mohsindev.candilize.infrastructure.markets.binance.dto.BinanceKline;
+import com.mohsindev.candilize.infrastructure.market.CandleDataService;
+import com.mohsindev.candilize.infrastructure.market.binance.dto.BinanceKline;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatusCode;

@@ -1,10 +1,10 @@
-package com.mohsindev.candilize.infrastructure.markets.mexc;
+package com.mohsindev.candilize.infrastructure.market.mexc;
 
 import com.mohsindev.candilize.domain.Ohlcv;
 import com.mohsindev.candilize.enums.CandleInterval;
 import com.mohsindev.candilize.infrastructure.enums.ExchangeName;
-import com.mohsindev.candilize.infrastructure.markets.CandleDataProvider;
-import com.mohsindev.candilize.infrastructure.markets.mexc.dto.MexcKline;
+import com.mohsindev.candilize.infrastructure.market.CandleDataProvider;
+import com.mohsindev.candilize.infrastructure.market.mexc.dto.MexcKline;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 

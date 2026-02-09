@@ -1,11 +1,10 @@
-package com.mohsindev.candilize.service.impl;
+package com.mohsindev.candilize.service;
 
 import com.mohsindev.candilize.configuration.ExchangeProperties;
 import com.mohsindev.candilize.domain.Ohlcv;
 import com.mohsindev.candilize.enums.CandleInterval;
 import com.mohsindev.candilize.infrastructure.enums.ExchangeName;
-import com.mohsindev.candilize.infrastructure.markets.CandleDataProvider;
-import com.mohsindev.candilize.service.CandleService;
+import com.mohsindev.candilize.infrastructure.market.CandleDataProvider;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;

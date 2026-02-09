@@ -1,4 +1,4 @@
-package com.mohsindev.candilize.infrastructure.markets.mexc.dto;
+package com.mohsindev.candilize.infrastructure.market.mexc.dto;
 
 import lombok.Builder;
 import lombok.Data;

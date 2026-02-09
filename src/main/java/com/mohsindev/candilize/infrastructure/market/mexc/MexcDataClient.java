@@ -1,7 +1,7 @@
-package com.mohsindev.candilize.infrastructure.markets.mexc;
+package com.mohsindev.candilize.infrastructure.market.mexc;
 
-import com.mohsindev.candilize.infrastructure.markets.CandleDataService;
-import com.mohsindev.candilize.infrastructure.markets.mexc.dto.MexcKline;
+import com.mohsindev.candilize.infrastructure.market.CandleDataService;
+import com.mohsindev.candilize.infrastructure.market.mexc.dto.MexcKline;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatusCode;

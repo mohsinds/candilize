@@ -1,9 +1,9 @@
-package com.mohsindev.candilize.infrastructure.markets.binance;
+package com.mohsindev.candilize.infrastructure.market.binance;
 
 import com.mohsindev.candilize.domain.Ohlcv;
 import com.mohsindev.candilize.enums.CandleInterval;
-import com.mohsindev.candilize.infrastructure.markets.KlineToOhlcvAdapter;
-import com.mohsindev.candilize.infrastructure.markets.binance.dto.BinanceKline;
+import com.mohsindev.candilize.infrastructure.market.KlineToOhlcvAdapter;
+import com.mohsindev.candilize.infrastructure.market.binance.dto.BinanceKline;
 import org.springframework.stereotype.Component;
 
 /**
