@@ -1,28 +1,22 @@
 package com.mohsindev.candilize.domain;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
-@Data
+@Value
 @Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class KafkaPriceRequest {
-    private String requestId;
+    String requestId;
+    PriceObject priceObject;
 
-    @Data
+    @Value
     @Builder
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public class PriceObject {
-        private String pair;
-        private String interval;
-        private int limit;
-        private String exchange;
+    public static class PriceObject {
+        String pair;
+        String interval;
+        int limit;
+        String exchange;
     }
-    private LocalDateTime timestamp;
+    LocalDateTime timestamp;
 }

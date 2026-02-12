@@ -1,9 +1,12 @@
 package com.mohsindev.candilize.api;
 
+import com.mohsindev.candilize.domain.KafkaPriceRequest;
 import com.mohsindev.candilize.domain.Ohlcv;
 import com.mohsindev.candilize.enums.CandleInterval;
 import com.mohsindev.candilize.infrastructure.enums.ExchangeName;
 import com.mohsindev.candilize.service.CandleService;
+import com.mohsindev.candilize.service.KafkaProducerService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -11,7 +14,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/candles")
@@ -19,8 +24,12 @@ public class CandleController {
 
     private final CandleService candleService;
 
-    public CandleController(CandleService candleService) {
+    @Autowired
+    private KafkaProducerService kafkaProducerService;
+
+    public CandleController(CandleService candleService) { //, KafkaProducerService kafkaProducerService) {
         this.candleService = candleService;
+//        this.kafkaProducerService = kafkaProducerService;
     }
 
     /**
@@ -38,6 +47,21 @@ public class CandleController {
         List<Ohlcv> candles = exchange != null && !exchange.isBlank()
                 ? candleService.getCandles(pair, candleInterval, limit, ExchangeName.parseCode(exchange))
                 : candleService.getCandles(pair, candleInterval, limit);
-        return ResponseEntity.ok(candles);
+
+        KafkaPriceRequest request = KafkaPriceRequest.builder()
+                .requestId(UUID.randomUUID().toString())
+                .priceObject(KafkaPriceRequest.PriceObject.builder()
+                        .pair(pair)
+                        .interval(interval)
+                        .limit(limit)
+                        .exchange(exchange)
+                        .build()
+                )
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        kafkaProducerService.sendProducerRequest(request);
+
+        return ResponseEntity.ok(null);
     }
 }
