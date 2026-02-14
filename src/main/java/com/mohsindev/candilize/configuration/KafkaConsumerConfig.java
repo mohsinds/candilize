@@ -35,6 +35,7 @@ public class KafkaConsumerConfig {
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JacksonJsonDeserializer.class);
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         props.put(JacksonJsonDeserializer.TRUSTED_PACKAGES, "*");
+        props.put(JacksonJsonDeserializer.VALUE_DEFAULT_TYPE, "com.mohsindev.candilize.domain.KafkaPriceRequest");
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
         return new DefaultKafkaConsumerFactory<>(props);
     }

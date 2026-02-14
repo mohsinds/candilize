@@ -4,6 +4,10 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
+/**
+ * Message payload for the get-price Kafka topic. The consumer uses priceObject (pair, interval, limit, exchange)
+ * to fetch candles from the appropriate CandleDataProvider and persist them to candle_data.
+ */
 @Value
 @Builder
 public class KafkaPriceRequest {

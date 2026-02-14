@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.Instant;
 
+/** Domain model for a single OHLCV candle (open, high, low, close, volume, timestamp, interval). */
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder

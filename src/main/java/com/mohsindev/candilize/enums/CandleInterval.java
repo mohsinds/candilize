@@ -16,7 +16,8 @@ public enum CandleInterval {
     FOUR_HOUR("4h", 14400),
 
     ONE_DAY("1d", 86400),
-    ONE_WEEK("1w", 604800);
+    ONE_WEEK("1w", 604800),
+    ONE_MONTH("1M", 2592000);
 
     @Getter
     private final String code;

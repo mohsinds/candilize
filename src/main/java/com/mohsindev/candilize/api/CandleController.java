@@ -1,12 +1,8 @@
 package com.mohsindev.candilize.api;
 
-import com.mohsindev.candilize.domain.KafkaPriceRequest;
-import com.mohsindev.candilize.domain.Ohlcv;
-import com.mohsindev.candilize.enums.CandleInterval;
-import com.mohsindev.candilize.infrastructure.enums.ExchangeName;
-import com.mohsindev.candilize.service.CandleService;
-import com.mohsindev.candilize.service.KafkaProducerService;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.mohsindev.candilize.api.dto.response.CandleResponse;
+import com.mohsindev.candilize.service.CandleQueryService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -14,54 +10,41 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
+/**
+ * REST controller for candle (OHLCV) data. All endpoints require JWT authentication.
+ * Data is read from the database (candle_data table) with optional Redis caching.
+ * Pair and interval must exist in supported_pairs and supported_intervals and be enabled.
+ */
 @RestController
 @RequestMapping("/api/v1/candles")
+@RequiredArgsConstructor
 public class CandleController {
 
-    private final CandleService candleService;
-
-    @Autowired
-    private KafkaProducerService kafkaProducerService;
-
-    public CandleController(CandleService candleService) { //, KafkaProducerService kafkaProducerService) {
-        this.candleService = candleService;
-//        this.kafkaProducerService = kafkaProducerService;
-    }
+    private final CandleQueryService candleQueryService;
 
     /**
-     * Returns OHLCV candles from the abstract CandleService (Strategy: selected exchange provider).
-     * Query params: optional exchange (default from config). Path: pair, interval, limit.
+     * Returns paginated candles for the given pair and interval.
+     * Optional filters: startTime, endTime (epoch ms), exchange. Results ordered by openTime descending.
      */
-    @GetMapping("/{pair}/{interval}/{limit}")
-    public ResponseEntity<List<Ohlcv>> getCandles(
+    @GetMapping("/{pair}/{interval}")
+    public ResponseEntity<List<CandleResponse>> getCandles(
             @PathVariable String pair,
             @PathVariable String interval,
-            @PathVariable int limit,
-            @RequestParam(required = false) String exchange
-    ) {
-        CandleInterval candleInterval = CandleInterval.parseCode(interval);
-        List<Ohlcv> candles = exchange != null && !exchange.isBlank()
-                ? candleService.getCandles(pair, candleInterval, limit, ExchangeName.parseCode(exchange))
-                : candleService.getCandles(pair, candleInterval, limit);
+            @RequestParam(defaultValue = "100") int limit,
+            @RequestParam(required = false) Long startTime,
+            @RequestParam(required = false) Long endTime,
+            @RequestParam(required = false) String exchange) {
+        List<CandleResponse> candles = candleQueryService.getCandles(
+                pair, interval, limit, startTime, endTime, exchange);
+        return ResponseEntity.ok(candles);
+    }
 
-        KafkaPriceRequest request = KafkaPriceRequest.builder()
-                .requestId(UUID.randomUUID().toString())
-                .priceObject(KafkaPriceRequest.PriceObject.builder()
-                        .pair(pair)
-                        .interval(interval)
-                        .limit(limit)
-                        .exchange(exchange)
-                        .build()
-                )
-                .timestamp(LocalDateTime.now())
-                .build();
-
-        kafkaProducerService.sendProducerRequest(request);
-
-        return ResponseEntity.ok(null);
+    /** Returns the list of interval codes that have stored candle data for this pair. */
+    @GetMapping("/{pair}")
+    public ResponseEntity<List<String>> getAvailableIntervals(@PathVariable String pair) {
+        List<String> intervals = candleQueryService.getAvailableIntervalsForPair(pair);
+        return ResponseEntity.ok(intervals);
     }
 }

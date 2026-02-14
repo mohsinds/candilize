@@ -5,7 +5,8 @@ import java.util.Arrays;
 
 public enum ExchangeName {
     MEXC("mexc", "MEXC API"),
-    BINANCE("binance", "Binance API");
+    BINANCE("binance", "Binance API"),
+    TEST("test", "Test/Dummy API");
 
     @Getter
     private final String code;
