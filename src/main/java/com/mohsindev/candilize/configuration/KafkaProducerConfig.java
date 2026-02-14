@@ -10,6 +10,7 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.support.converter.ByteArrayJacksonJsonMessageConverter;
+import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 
 
 import java.util.HashMap;
@@ -17,7 +18,8 @@ import java.util.Map;
 
 @Configuration
 public class KafkaProducerConfig {
-    @Value("${spring.kafka.bootstrap-servers")
+
+    @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServer;
 
     @Bean
@@ -28,7 +30,8 @@ public class KafkaProducerConfig {
 
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
 
-        configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
+//        configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
+        configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JacksonJsonSerializer.class);
 
         configProps.put(ProducerConfig.ACKS_CONFIG, "all");
 
