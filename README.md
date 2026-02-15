@@ -7,6 +7,7 @@ Candilize is a **crypto pricing data download and serving system** built as a mi
 ## Table of Contents
 
 - [Architecture Overview](#architecture-overview)
+- [Mermaid Diagrams](#mermaid-diagrams)
 - [Tech Stack](#tech-stack)
 - [Module Overview](#module-overview)
 - [Infrastructure & Data Flow](#infrastructure--data-flow)
@@ -17,6 +18,19 @@ Candilize is a **crypto pricing data download and serving system** built as a mi
 - [API Documentation](#api-documentation)
 - [Project Structure](#project-structure)
 - [Troubleshooting](#troubleshooting)
+
+---
+
+## Mermaid Diagrams
+
+GitHub-rendered Mermaid diagrams are in **[docs/DIAGRAMS.md](docs/DIAGRAMS.md)**:
+
+| Diagram | Type | Description |
+|---------|------|-------------|
+| [System Architecture](docs/DIAGRAMS.md#system-architecture-flowchart) | flowchart | Clients, services, data stores, external systems |
+| [Kafka Flow](docs/DIAGRAMS.md#kafka-flow-sequencediagram) | sequenceDiagram | Scheduler → Auth → Kafka → Consumer → Exchange → MongoDB |
+| [Microservices Overview](docs/DIAGRAMS.md#microservices-overview-graph-td) | graph TD | Proto, Auth, Market, Technical modules and dependencies |
+| [User Journey](docs/DIAGRAMS.md#user-journey-flowchart-lr) | flowchart LR | Register → Login → Read candles / Admin config / Trigger download |
 
 ---
 
