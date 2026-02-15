@@ -16,8 +16,8 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
-import org.springframework.kafka.support.serializer.JsonSerializer;
+import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
+import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -26,7 +26,7 @@ import java.util.Map;
  * Kafka configuration for the candle download pipeline.
  * Producer: Sends KafkaPriceRequest to get-price topic (key: pair, value: JSON request).
  * Consumer: KafkaConsumerService consumes from get-price, deserializes to KafkaPriceRequest.
- * Uses JsonSerializer/JsonDeserializer; ErrorHandlingDeserializer wraps failures for resilient consumption.
+ * Uses JacksonJsonSerializer/JacksonJsonDeserializer; ErrorHandlingDeserializer wraps failures for resilient consumption.
  */
 @EnableKafka
 @Configuration
@@ -43,7 +43,7 @@ public class KafkaConfig {
         Map<String, Object> config = new HashMap<>();
         config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+        config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JacksonJsonSerializer.class);
         config.put(ProducerConfig.ACKS_CONFIG, "all");
         config.put(ProducerConfig.RETRIES_CONFIG, 3);
         return new DefaultKafkaProducerFactory<>(config);
@@ -61,9 +61,9 @@ public class KafkaConfig {
         props.put(ConsumerConfig.GROUP_ID_CONFIG, consumerGroupId);
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
-        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class);
-        props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, KafkaPriceRequest.class.getName());
-        props.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
+        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JacksonJsonDeserializer.class);
+        props.put(JacksonJsonDeserializer.VALUE_DEFAULT_TYPE, KafkaPriceRequest.class.getName());
+        props.put(JacksonJsonDeserializer.TRUSTED_PACKAGES, "*");
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, true);
         return new DefaultKafkaConsumerFactory<>(props);

@@ -1,5 +1,7 @@
 package com.mohsindev.candilize.market.domain;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -13,6 +15,17 @@ import java.time.LocalDateTime;
 public class KafkaPriceRequest {
     String requestId;
     PriceObject priceObject;
+    LocalDateTime timestamp;
+
+    @JsonCreator
+    public KafkaPriceRequest(
+            @JsonProperty("requestId") String requestId,
+            @JsonProperty("priceObject") PriceObject priceObject,
+            @JsonProperty("timestamp") LocalDateTime timestamp) {
+        this.requestId = requestId;
+        this.priceObject = priceObject;
+        this.timestamp = timestamp;
+    }
 
     @Value
     @Builder
@@ -21,6 +34,17 @@ public class KafkaPriceRequest {
         String interval;
         int limit;
         String exchange;
+
+        @JsonCreator
+        public PriceObject(
+                @JsonProperty("pair") String pair,
+                @JsonProperty("interval") String interval,
+                @JsonProperty("limit") int limit,
+                @JsonProperty("exchange") String exchange) {
+            this.pair = pair;
+            this.interval = interval;
+            this.limit = limit;
+            this.exchange = exchange;
+        }
     }
-    LocalDateTime timestamp;
 }
