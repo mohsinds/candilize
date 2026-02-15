@@ -17,6 +17,13 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Security configuration for candilize-market.
+ * JWT validation via gRPC (AuthGrpcClient) in JwtAuthenticationFilter.
+ * - /actuator/health: Public.
+ * - /api/v1/candles/**, /api/v1/cache/**: Authenticated.
+ * - /api/v1/download/**: ROLE_ADMIN only.
+ */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity

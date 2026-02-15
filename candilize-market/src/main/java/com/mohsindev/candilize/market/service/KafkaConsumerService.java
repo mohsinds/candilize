@@ -9,6 +9,11 @@ import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
 
+/**
+ * Consumes KafkaPriceRequest from get-price topic.
+ * Delegates to CandleDownloadService to fetch candles from exchange and persist to MongoDB.
+ * Group ID ensures only one consumer processes each message (within consumer group).
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor

@@ -22,6 +22,12 @@ import org.springframework.kafka.support.serializer.JsonSerializer;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Kafka configuration for the candle download pipeline.
+ * Producer: Sends KafkaPriceRequest to get-price topic (key: pair, value: JSON request).
+ * Consumer: KafkaConsumerService consumes from get-price, deserializes to KafkaPriceRequest.
+ * Uses JsonSerializer/JsonDeserializer; ErrorHandlingDeserializer wraps failures for resilient consumption.
+ */
 @EnableKafka
 @Configuration
 public class KafkaConfig {

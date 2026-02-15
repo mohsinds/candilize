@@ -15,6 +15,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * Cron-based scheduler that triggers candle downloads via Kafka.
+ * Fetches enabled pairs/intervals from auth service (SchedulerConfigClient), then sends
+ * KafkaPriceRequest for each (pair, interval) to get-price topic.
+ * Methods are @Scheduled per interval (1m, 5m, 15m, etc.) - only runs when app.scheduler.enabled=true.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor

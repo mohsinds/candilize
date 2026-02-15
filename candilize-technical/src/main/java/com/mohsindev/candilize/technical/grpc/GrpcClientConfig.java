@@ -6,6 +6,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.grpc.client.GrpcChannelFactory;
 
+/**
+ * gRPC client configuration for candilize-technical.
+ * - auth: Calls candilize-auth for JWT validation (ValidateToken).
+ * - market: Calls candilize-market for candle data (GetCandles).
+ * Channel addresses from spring.grpc.client.channels.*.address in application.properties.
+ */
 @Configuration
 public class GrpcClientConfig {
 

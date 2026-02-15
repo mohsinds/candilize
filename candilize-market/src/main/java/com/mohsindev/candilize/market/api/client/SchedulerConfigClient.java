@@ -13,8 +13,11 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Fetches scheduler config (enabled pairs/intervals) from auth service internal API.
- * Used by PriceDownloadScheduler and for pair/interval validation.
+ * Fetches scheduler config (enabled pairs/intervals) from candilize-auth internal API.
+ * Endpoint: GET /api/v1/internal/scheduler-config
+ * Auth: X-API-Key header (app.internal.api-key).
+ * Used by PriceDownloadScheduler (cron) and ConfigValidationService (pair/interval validation).
+ * Callers should use @Cacheable("schedulerConfig") to avoid hitting auth on every request.
  */
 @Slf4j
 @Component

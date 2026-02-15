@@ -1,20 +1,135 @@
 # Candilize
 
-Candilize is a **crypto pricing data download and serving system** built with Spring Boot. It fetches OHLCV (candle) data from multiple exchanges (Binance, MEXC), stores **pricing data in MongoDB** and **users, pairs, and intervals in MySQL**, exposes it via REST APIs with JWT authentication, and uses Kafka for asynchronous download pipelines and Redis for caching.
+Candilize is a **crypto pricing data download and serving system** built as a microservices architecture with Spring Boot. It fetches OHLCV (candle) data from multiple exchanges (Binance, MEXC), stores **pricing data in MongoDB** and **users, pairs, and intervals in MySQL**, exposes REST APIs with JWT authentication, uses **Kafka** for asynchronous download pipelines, **Redis** for caching, and **gRPC** for service-to-service communication.
 
 ---
 
 ## Table of Contents
 
-- [Tech Stack](#tech-stack)
 - [Architecture Overview](#architecture-overview)
-- [Project Structure & Layers](#project-structure--layers)
-- [Prerequisites & Setup](#prerequisites--setup)
+- [Tech Stack](#tech-stack)
+- [Module Overview](#module-overview)
+- [Infrastructure & Data Flow](#infrastructure--data-flow)
+- [Prerequisites](#prerequisites)
+- [How to Run](#how-to-run)
 - [Configuration](#configuration)
+- [Inter-Service Communication](#inter-service-communication)
 - [API Documentation](#api-documentation)
-- [Controller Advice & AOP Logging](#controller-advice--aop-logging)
-- [Testing the Full Flow](#testing-the-full-flow)
-- [License](#license)
+- [Project Structure](#project-structure)
+- [Troubleshooting](#troubleshooting)
+
+---
+
+## Architecture Overview
+
+### High-Level System Diagram
+
+```
+                                    ┌─────────────────────────────────────────────────────────────────────────────┐
+                                    │                              CLIENTS                                        │
+                                    │                    (Web, Mobile, External APIs)                             │
+                                    └─────────────────────────────────────────────────────────────────────────────┘
+                                                                  │
+                                         REST (JWT)               │               REST (JWT)
+                                         :8081                    │                    :8082
+                                    ┌────▼────┐              ┌────▼────┐         ┌────▼────────────┐
+                                    │  Auth   │              │ Market  │         │   Technical     │
+                                    │  :8081  │              │  :8080  │         │     :8082       │
+                                    │  gRPC   │              │  gRPC   │         │  gRPC clients   │
+                                    │  :9090  │              │  :9091  │         │                 │
+                                    └────┬────┘              └────┬────┘         └────┬────────────┘
+                                         │                        │                   │
+                              MySQL      │      REST (X-API-Key)  │      gRPC         │ gRPC
+                              Redis      │◄───────────────────────┤                   │
+                                         │                        │                   │
+                                         │              ┌─────────▼─────────┐         │
+                                         │              │     Kafka         │         │
+                                         │              │  get-price topic  │         │
+                                         │              └─────────┬─────────┘         │
+                                         │                        │                   │
+                                         │              MongoDB   │                   │
+                                         │              Redis     │                   │
+                                    ┌────┴────┐              ┌────▼────┐         ┌────▼────┐
+                                    │  MySQL  │              │ MongoDB │         │  Auth   │
+                                    │  Redis  │              │  Redis  │         │  Market │
+                                    └─────────┘              └─────────┘         └─────────┘
+```
+
+### Microservices Communication Flow
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                    CANDILIZE MICROSERVICES                                                  │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                                             │
+│   ┌──────────────────┐         gRPC           ┌──────────────────┐         gRPC          ┌────────────────┐ │
+│   │ candilize-auth   │ ◄───────────────────── │ candilize-market │ ◄──────────────────── │ candilize-     │ │
+│   │                  │   ValidateToken        │                  │   GetCandles          │ technical      │ │
+│   │ • JWT validation │                        │ • REST candles   │                       │ • Indicators   │ │
+│   │ • User/pair/     │                        │ • Kafka producer │                       │ • Scanner      │ │
+│   │   interval CRUD  │                        │ • Kafka consumer │                       │ • Backtest     │ │
+│   │ • gRPC server    │                        │ • gRPC server    │                       │ • Strategy     │ │
+│   └────────┬─────────┘                        └────────┬─────────┘                       └────────────────┘ │
+│            │                                           │                                                    │
+│            │ REST (X-API-Key)                          │                                                    │
+│            │ /api/v1/internal/scheduler-config         │                                                    │
+│            │◄──────────────────────────────────────────┤                                                    │
+│            │   (SchedulerConfigClient)                 │                                                    │
+│            │                                           │                                                    │
+│   ┌────────▼─────────┐                        ┌────────▼───────────┐                                        │
+│   │ MySQL            │                        │ Kafka              │                                        │
+│   │ • users          │                        │ • get-price        │                                        │
+│   │ • pairs          │                        │   (async download) │                                        │
+│   │ • intervals      │                        └────────┬───────────┘                                        │
+│   └──────────────────┘                                 │                                                    │
+│   ┌──────────────────┐                        ┌────────▼─────────┐                                          │
+│   │ Redis            │                        │ MongoDB          │                                          │
+│   │ • config cache   │                        │ • candle_data    │                                          │
+│   └──────────────────┘                        └──────────────────┘                                          │
+│                                               ┌──────────────────┐                                          │
+│                                               │ Redis            │                                          │
+│                                               │ • candles cache  │                                          │
+│                                               │ • schedulerConfig│                                          │
+│                                               └──────────────────┘                                          │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Data Flow: Candle Download Pipeline
+
+```
+┌─────────────────┐     Cron      ┌───────────────────────┐     REST      ┌─────────────────┐
+│ PriceDownload   │ ────────────► │ SchedulerConfigClient │ ────────────► │ Auth Service    │
+│ Scheduler       │   (1m,5m…)    │ fetchSchedulerConfig  │  X-API-Key    │ /internal/      │
+└────────┬────────┘               └───────────────────────┘               │ scheduler-config│
+         │                                    │                           └─────────────────┘
+         │ pairs + intervals                  │
+         ▼                                    │
+┌──────────────────────┐                      │
+│ KafkaProducerService │                      │
+│ sendProducerRequest  │                      │
+└────────┬─────────────┘                      │
+         │ Kafka (get-price)                  │
+         ▼                                    │
+┌──────────────────────┐                      │
+│ KafkaConsumerService │                      │
+│ consumePriceRequest  │                      │
+└────────┬─────────────┘                      │
+         │                                    │
+         ▼                                    │
+┌──────────────────────┐     WebFlux         ┌─────────────────┐
+│ CandleDownloadService│ ──────────────────► │ Binance / MEXC  │
+│ downloadAndPersist   │   (exchange APIs)   │ Exchange APIs   │
+└────────┬─────────────┘                     └─────────────────┘
+         │
+         ▼
+┌──────────────────────┐
+│ CandleData           │
+│ PersistenceService   │ ───► MongoDB (candle_data)
+└──────────────────────┘
+         │
+         ▼
+    Cache eviction (Redis candles cache)
+```
 
 ---
 
@@ -23,286 +138,273 @@ Candilize is a **crypto pricing data download and serving system** built with Sp
 | Layer | Technology |
 |-------|------------|
 | **Runtime** | Java 17, Spring Boot 4.0.2 |
+| **Build** | Maven (multi-module) |
 | **Web** | Spring Web (REST), Spring WebFlux (exchange API clients) |
 | **Security** | Spring Security, JWT (jjwt 0.12.6), BCrypt |
-| **Data** | Spring Data JPA + MySQL (users, pairs, intervals), Spring Data MongoDB (candle data), Flyway |
+| **RPC** | gRPC (spring-grpc 1.0.2), Protobuf |
+| **Data – SQL** | Spring Data JPA, MySQL 8, Flyway |
+| **Data – NoSQL** | Spring Data MongoDB |
 | **Cache** | Spring Data Redis |
 | **Messaging** | Spring Kafka |
 | **Validation** | Jakarta Bean Validation |
 | **Resilience** | Spring Retry |
-| **AOP** | Spring AOP (logging aspect) |
+| **AOP** | Spring AspectJ (logging, retry) |
+| **Exchanges** | Binance, MEXC (REST APIs) |
 
 ---
 
-## Architecture Overview
+## Module Overview
 
-```
-                    ┌─────────────────────────────────────────────────────────┐
-                    │                     Client (REST)                         │
-                    └────────────────────────────┬────────────────────────────┘
-                                                 │
-                    ┌────────────────────────────▼────────────────────────────┐
-                    │  Security: JWT Filter → AuthEntryPoint (401)             │
-                    └────────────────────────────┬────────────────────────────┘
-                                                 │
-                    ┌────────────────────────────▼────────────────────────────┐
-                    │  Controllers (Auth, Candle, Config, Download, Cache)    │
-                    │  + GlobalExceptionHandler (Controller Advice)           │
-                    │  + LoggingAspect (AOP: entry/exit/duration)             │
-                    └───┬──────────────────┬──────────────────┬──────────────┘
-                        │                  │                  │
-        ┌───────────────▼──────┐  ┌────────▼────────┐  ┌─────▼─────────────────┐
-        │  AuthService         │  │ CandleQuerySvc  │  │ KafkaProducerService  │
-        │  ConfigService      │  │ ConfigService   │  │ (get-price topic)     │
-        └───────────────┬──────┘  └────────┬────────┘  └─────┬─────────────────┘
-                        │                  │                  │
-        ┌───────────────▼──────┐  ┌────────▼────────┐        │
-        │  UserRepository      │  │ CandleDataMongo │        │
-        │  (MySQL)             │  │ Repo + Redis   │        │
-        └─────────────────────┘  └─────────────────┘        │
-                                                              │
-                    ┌─────────────────────────────────────────▼─────────────────┐
-                    │  Kafka: get-price topic                                    │
-                    └─────────────────────────────────────────┬─────────────────┘
-                                                              │
-                    ┌─────────────────────────────────────────▼─────────────────┐
-                    │  KafkaConsumerService → CandleDownloadService            │
-                    │  → CandleDataProviderFactory → Provider (Binance/MEXC/   │
-                    │    Test) → CandleDataPersistenceService → MongoDB        │
-                    └──────────────────────────────────────────────────────────┘
-```
-
-- **Request flow (read path):** Client → JWT filter → Controller → Service → DB (or Redis cache) → Response.
-- **Download flow:** Scheduler or Download/Cache controller → Kafka producer → get-price topic → Consumer → Provider → Persist to DB → Cache eviction when needed.
+| Module | Port | gRPC Port | Description |
+|--------|------|-----------|-------------|
+| **candilize-proto** | — | — | Shared Protobuf definitions (auth.proto, market.proto) |
+| **candilize-auth** | 8081 | 9090 | Auth, user management, pairs/intervals config, JWT issuer |
+| **candilize-market** | 8080 | 9091 | Candle data, Kafka download pipeline, exchange integrations |
+| **candilize-technical** | 8082 | — | Technical analysis (indicators, scanner, strategy, backtest) |
 
 ---
 
-## Project Structure & Layers
+## Infrastructure & Data Flow
 
-```
-src/main/java/com/mohsindev/candilize/
-├── CandilizeApplication.java          # Entry point; enables caching, retry, config scan
-├── aspect/
-│   └── LoggingAspect.java             # AOP: logs controller/service/security method entry, args (sanitized), duration, exceptions
-├── api/
-│   ├── CandleController.java          # GET candles by pair/interval; GET intervals for pair (authenticated)
-│   ├── CacheController.java           # GET refresh: trigger Kafka download (authenticated)
-│   ├── IndicatorController.java      # Indicator endpoints (existing)
-│   ├── controller/
-│   │   ├── AuthController.java        # POST register, login, refresh (public)
-│   │   ├── ConfigController.java      # CRUD pairs/intervals, list exchanges (ADMIN)
-│   │   └── DownloadController.java   # POST download, backfill (ADMIN)
-│   ├── dto/
-│   │   ├── request/                   # RegisterRequest, LoginRequest, PairRequest, DownloadRequest
-│   │   └── response/                  # AuthResponse, CandleResponse, PairResponse, IntervalResponse, ErrorResponse
-│   └── exception/
-│       ├── GlobalExceptionHandler.java  # @RestControllerAdvice: maps exceptions → ErrorResponse + status
-│       ├── EntityNotFoundException.java
-│       └── UnsupportedExchangeException.java
-├── configuration/
-│   ├── AspectConfig.java              # @EnableAspectJAutoProxy for LoggingAspect
-│   ├── CacheConfig.java               # Redis CacheManager, TTLs for candles / config caches
-│   ├── ExchangeProperties.java       # exchange.mexc.base-url, exchange.binance.base-url, defaultExchange
-│   ├── KafkaAdminConfig.java
-│   ├── KafkaConsumerConfig.java
-│   ├── KafkaProducerConfig.java
-│   ├── KafkaTopicConfig.java
-│   ├── SchedulerConfig.java           # @EnableScheduling when app.scheduler.enabled=true
-│   └── WebClientConfig.java           # WebClient beans for MEXC/Binance
-├── domain/
-│   ├── KafkaPriceRequest.java        # Payload for get-price topic (requestId, priceObject, timestamp)
-│   └── Ohlcv.java                    # Domain candle: interval, timestamp, open, high, low, close, volume
-├── enums/
-│   └── CandleInterval.java           # 1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 1d, 1w, 1M
-├── infrastructure/
-│   ├── enums/
-│   │   └── ExchangeName.java         # MEXC, BINANCE, TEST
-│   ├── market/
-│   │   ├── CandleDataProvider.java   # Strategy: getCandles(pair, interval, limit)
-│   │   ├── CandleDataProviderFactory.java  # Resolves provider by exchange; returns TestCandleDataProvider when testing-mode
-│   │   ├── TestCandleDataProvider.java     # Dummy data when app.testing-mode=true
-│   │   ├── KlineToOhlcvAdapter.java  # Adapter: exchange kline DTO → Ohlcv
-│   │   ├── binance/                  # BinanceCandleDataProvider, BinanceDataClient, BinanceKlineToOhlcvAdapter
-│   │   └── mexc/                     # MexcCandleDataProvider, MexcDataClient, MexcKlineToOhlcvAdapter
-│   └── persistence/
-│       ├── entity/                   # UserEntity, SupportedPairEntity, SupportedIntervalEntity (MySQL/JPA)
-│       ├── document/                 # CandleDataDocument (MongoDB)
-│       └── repository/               # JPA repos (User, Pair, Interval); CandleDataMongoRepository + custom impl (MongoDB)
-├── security/
-│   ├── AuthEntryPoint.java           # Returns 401 JSON when unauthenticated
-│   ├── JwtAuthenticationFilter.java # Extracts JWT, validates, sets SecurityContext
-│   ├── JwtTokenProvider.java         # Generate/validate JWT access & refresh tokens
-│   ├── SecurityConfig.java          # Filter chain, CORS, BCrypt, role-based access
-│   └── UserDetailsServiceImpl.java  # Loads user from DB for Spring Security
-└── service/
-    ├── AuthService.java              # Register, login, refreshToken
-    ├── CandleDataPersistenceService.java  # Persist Ohlcv list to MongoDB candle_data (upsert by exists-check)
-    ├── CandleDownloadService.java    # @Retryable: get provider → getCandles → persist
-    ├── CandleQueryService.java       # getCandles (from DB + cache), getAvailableIntervalsForPair
-    ├── ConfigService.java            # CRUD pairs/intervals; getEnabledPairs/getEnabledIntervals for scheduler
-    ├── KafkaConsumerService.java     # @KafkaListener get-price → CandleDownloadService
-    ├── KafkaProducerService.java     # sendProducerRequest(KafkaPriceRequest)
-    ├── PriceDownloadScheduler.java    # @Scheduled per interval (1m, 5m, …): publish KafkaPriceRequest for enabled pairs
-    └── ...
-```
+### MySQL (candilize-auth)
+
+- **Database:** `candilize1` (configurable)
+- **Tables:** `users`, `supported_pairs`, `supported_intervals`
+- **Migrations:** Flyway (`db/migration/V1__*.sql`, V2, V3)
+- **Use:** User accounts, trading pairs, candle intervals configuration
+
+### MongoDB (candilize-market)
+
+- **Database:** `candilize` (configurable via `MONGODB_URI`)
+- **Collection:** `candle_data` (OHLCV documents)
+- **Index:** Compound unique index on `(symbol, intervalCode, openTime, exchange)`
+- **Use:** Time-series candle data from exchanges
+
+### Redis
+
+| Service | Cache Names | TTL | Use |
+|---------|-------------|-----|-----|
+| candilize-auth | config | 300s | Pair/interval config |
+| candilize-market | candles | 60s | Candle query results |
+| candilize-market | schedulerConfig | 30s | Scheduler config from auth |
+
+### Kafka
+
+| Topic | Producer | Consumer | Payload | Use |
+|-------|----------|----------|---------|-----|
+| `get-price` | candilize-market | candilize-market | `KafkaPriceRequest` (pair, interval, limit, exchange) | Async candle download pipeline |
+
+### gRPC
+
+| Service | Port | RPCs | Callers |
+|---------|------|------|---------|
+| AuthService | 9090 | ValidateToken, GetUserByUsername | candilize-market, candilize-technical |
+| MarketService | 9091 | GetCandles | candilize-technical |
 
 ---
 
-## Prerequisites & Setup
+## Prerequisites
 
-- **Java 17**
-- **MySQL** (e.g. 8.x) — database `candilize` for users, supported_pairs, supported_intervals (created automatically if `createDatabaseIfNotExist=true`)
-- **MongoDB** — database `candilize` for candle (pricing) data
-- **Redis** — for candle and config caches
-- **Kafka** — for the `get-price` topic (e.g. single broker for dev)
+| Requirement | Version | Notes |
+|-------------|---------|-------|
+| **Java** | 17+ | OpenJDK or Oracle JDK |
+| **Maven** | 3.8+ | Or use `./mvnw` |
+| **MySQL** | 8.x | For auth service |
+| **MongoDB** | 5.x+ | For candle data |
+| **Redis** | 6.x+ | For caching |
+| **Kafka** | 3.x+ | Single broker OK for dev |
 
-Optional environment variables (with defaults in `application.properties`):
+### Optional Environment Variables
 
-- `DB_PASSWORD` — MySQL password (default: `root`)
-- `MONGODB_URI` — MongoDB connection URI (default: `mongodb://localhost:27017/candilize`)
-- `JWT_SECRET` — Base64-encoded secret for JWT signing (default: dev-only value)
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DB_PASSWORD` | (empty) | MySQL password |
+| `MONGODB_URI` | `mongodb://localhost:27071/candilize` | MongoDB connection |
+| `JWT_SECRET` | (dev-only base64) | JWT signing secret |
+| `INTERNAL_API_KEY` | `internal-dev-key` | Service-to-service API key |
+| `AUTH_SERVICE_URL` | `http://localhost:8081` | Auth REST base URL |
 
-1. Start MySQL, MongoDB, Redis, and Kafka.
-2. Run Flyway migrations (on first boot): MySQL tables `users`, `supported_pairs`, `supported_intervals` are created and seeded; candle data is stored in MongoDB only.
-3. Start the application:
+---
+
+## How to Run
+
+### 1. Start Infrastructure
 
 ```bash
-./mvnw spring-boot:run
+# MySQL (create DB candilize1 if needed)
+# MongoDB on 27071 (or update application.properties)
+# Redis on 6379
+# Kafka on 9092
+
+# Example with Docker Compose (if available):
+# docker-compose up -d mysql mongodb redis kafka
 ```
 
-Server runs at `http://localhost:8080`. Actuator health: `http://localhost:8080/actuator/health`.
+### 2. Build the Project
+
+```bash
+# From project root
+./mvnw clean install -DskipTests
+```
+
+### 3. Run Services (in order)
+
+**Terminal 1 – Auth (depends on MySQL, Redis):**
+```bash
+./mvnw -pl candilize-auth spring-boot:run
+```
+
+**Terminal 2 – Market (depends on Auth, MongoDB, Redis, Kafka):**
+```bash
+./mvnw -pl candilize-market spring-boot:run
+```
+
+**Terminal 3 – Technical (depends on Auth, Market):**
+```bash
+./mvnw -pl candilize-technical spring-boot:run
+```
+
+### 4. Health Checks
+
+| Service | Health URL |
+|---------|------------|
+| Auth | http://localhost:8081/actuator/health |
+| Market | http://localhost:8080/actuator/health |
+| Technical | http://localhost:8082/actuator/health |
 
 ---
 
 ## Configuration
 
-Key properties (see `src/main/resources/application.properties`):
+### Key Properties by Module
+
+#### candilize-auth
 
 | Property | Description |
 |----------|-------------|
-| `spring.datasource.*` | MySQL URL, username, password (use `DB_PASSWORD` in prod); used for users, pairs, intervals |
-| `spring.data.mongodb.uri` | MongoDB URI (use `MONGODB_URI` in prod); used for candle/pricing data only |
-| `spring.data.redis.*` | Redis host, port, timeout |
-| `app.jwt.secret`, `app.jwt.access-token-expiration`, `app.jwt.refresh-token-expiration` | JWT signing and expiry |
-| `app.cache.candle-ttl`, `app.cache.config-ttl` | Redis TTL in seconds for candle and config caches |
-| `app.scheduler.enabled` | Enable/disable scheduled downloads |
-| `app.scheduler.cron.*` | Cron expressions per interval (1m, 5m, 15m, 30m, 1h, 4h, 1d, 1w, 1M) |
-| `app.testing-mode` | If `true`, use TestCandleDataProvider (dummy data) for all exchanges |
-| `exchange.default-exchange` | Default exchange (e.g. `binance`) |
-| `app.kafka.topic.price-request` | Kafka topic name (e.g. `get-price`) |
+| `spring.datasource.*` | MySQL URL, user, password |
+| `spring.data.redis.*` | Redis host/port |
+| `app.jwt.secret` | JWT signing secret |
+| `app.internal.api-key` | Internal API key for /api/v1/internal/* |
+| `spring.grpc.server.port` | gRPC server port (9090) |
+
+#### candilize-market
+
+| Property | Description |
+|----------|-------------|
+| `spring.mongodb.uri` | MongoDB connection URI |
+| `spring.data.redis.*` | Redis host/port |
+| `app.auth-service.url` | Auth REST URL for scheduler config |
+| `app.kafka.topic.price-request` | Kafka topic (get-price) |
+| `app.scheduler.cron.*` | Cron expressions per interval |
+| `app.cache.candle-ttl` | Redis candle cache TTL (seconds) |
+| `exchange.*.base-url` | Binance/MEXC API URLs |
+| `spring.grpc.server.port` | gRPC server port (9091) |
+
+#### candilize-technical
+
+| Property | Description |
+|----------|-------------|
+| `spring.grpc.client.channels.auth.address` | Auth gRPC address |
+| `spring.grpc.client.channels.market.address` | Market gRPC address |
+| `app.auth-service.url` | Auth REST URL (e.g. for login redirects) |
+
+---
+
+## Inter-Service Communication
+
+### REST
+
+| From | To | Endpoint | Auth | Use |
+|------|-----|----------|------|-----|
+| Client | Auth | `/api/v1/auth/*` | None (register/login) | Auth flows |
+| Client | Auth | `/api/v1/config/*` | JWT | Pairs/intervals CRUD |
+| Client | Market | `/api/v1/candles/*` | JWT | Candle queries |
+| Client | Technical | `/api/v1/indicator/*`, etc. | JWT | Technical analysis |
+| Market | Auth | `/api/v1/internal/scheduler-config` | X-API-Key | Scheduler config |
+
+### gRPC
+
+| From | To | RPC | Use |
+|------|-----|-----|-----|
+| Market | Auth | ValidateToken | JWT validation for REST requests |
+| Technical | Auth | ValidateToken | JWT validation for REST requests |
+| Technical | Market | GetCandles | Fetch candles for indicators/backtest |
 
 ---
 
 ## API Documentation
 
-Base path: `/api/v1`. All endpoints except auth and health require `Authorization: Bearer <accessToken>` unless stated otherwise.
+### Auth Service (8081)
 
-### Auth (public)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/api/v1/auth/register` | — | Register user |
+| POST | `/api/v1/auth/login` | — | Login, returns JWT |
+| POST | `/api/v1/auth/refresh` | — | Refresh tokens |
+| GET | `/api/v1/config/pairs` | JWT (ADMIN) | List pairs |
+| POST | `/api/v1/config/pairs` | JWT (ADMIN) | Add pair |
+| GET | `/api/v1/internal/scheduler-config` | X-API-Key | Internal: enabled pairs/intervals |
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/auth/register` | Register: body `{ "username", "email", "password" }`. Validation: email format, password min 8 chars. |
-| POST | `/auth/login` | Login: body `{ "username", "password" }`. Returns `{ "accessToken", "refreshToken", "tokenType", "expiresIn" }`. |
-| POST | `/auth/refresh` | Body `{ "refreshToken": "..." }`. Returns new access and refresh tokens. |
+### Market Service (8080)
 
-### Candles (authenticated)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/v1/candles/{pair}/{interval}` | JWT | Candles (query: limit, startTime, endTime, exchange) |
+| GET | `/api/v1/candles/{pair}` | JWT | Available intervals for pair |
+| POST | `/api/v1/download` | JWT (ADMIN) | Trigger Kafka download |
+| GET | `/api/v1/cache/refresh/{pair}/{interval}/{limit}` | JWT | Refresh cache + trigger download |
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/candles/{pair}/{interval}` | Candles for pair/interval. Query: `limit` (default 100), `startTime`, `endTime` (epoch ms), `exchange` (optional). Data from DB; cache key includes params. |
-| GET | `/candles/{pair}` | List of interval codes that have stored data for this pair. |
+### Technical Service (8082)
 
-### Config (ADMIN)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | `/api/v1/indicator/**` | JWT | Technical indicators |
+| GET | `/api/v1/scanner/**` | JWT | Scanner endpoints |
+| GET | `/api/v1/strategy/**` | JWT | Strategy signals |
+| GET | `/api/v1/backtest/**` | JWT | Backtest results |
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/config/pairs` | List all supported pairs. |
-| POST | `/config/pairs` | Add pair: body `{ "symbol", "baseAsset", "quoteAsset" }`. |
-| PUT | `/config/pairs/{id}` | Update pair: body `{ "enabled": true/false }`. |
-| DELETE | `/config/pairs/{id}` | Delete pair. |
-| GET | `/config/intervals` | List all supported intervals. |
-| PUT | `/config/intervals/{id}` | Update interval: body `{ "enabled": true/false }`. |
-| GET | `/config/exchanges` | List available exchange codes. |
+---
 
-### Download (ADMIN)
+## Project Structure
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/download` | Trigger download: body `{ "pair", "interval", "exchange", "limit" }`. Sends message to Kafka. |
-| POST | `/download/backfill` | Backfill: same body; optional `startTime`, `endTime`. |
-
-### Cache (authenticated)
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/cache/refresh/{pair}/{interval}/{limit}` | Trigger async download for pair/interval/limit (default exchange). |
-
-### Error responses
-
-All errors go through `GlobalExceptionHandler` and return JSON like:
-
-```json
-{
-  "status": 401,
-  "error": "Unauthorized",
-  "message": "Invalid or expired JWT token",
-  "path": "/api/v1/candles/BTCUSDT/1h",
-  "timestamp": "2026-02-14T12:00:00Z"
-}
+```
+Candilize/
+├── candilize-proto/          # Shared Protobuf (auth, market)
+│   └── src/main/proto/
+│       ├── auth.proto
+│       └── market.proto
+├── candilize-auth/           # Auth + Config service
+│   ├── api/controller/       # REST controllers
+│   ├── grpc/                 # AuthGrpcService (ValidateToken, GetUserByUsername)
+│   ├── security/             # JWT, InternalApiKeyFilter
+│   ├── service/              # AuthService, ConfigService
+│   └── infrastructure/persistence/  # JPA entities, repositories
+├── candilize-market/         # Market data service
+│   ├── api/                  # REST, DTOs, SchedulerConfigClient
+│   ├── grpc/                 # MarketGrpcService, AuthGrpcClient
+│   ├── service/              # CandleQuery, KafkaProducer/Consumer, Download
+│   ├── configuration/        # Kafka, Redis, WebClient
+│   └── infrastructure/       # CandleDataDocument, repositories, providers
+├── candilize-technical/      # Technical analysis service
+│   ├── api/controller/       # Indicator, Scanner, Strategy, Backtest
+│   ├── grpc/                 # AuthGrpcClient, MarketGrpcClient
+│   ├── indicator/            # IndicatorService
+│   ├── scanner/              # ScannerService
+│   └── backtest/             # BacktestService
+└── docs/
+    └── TROUBLESHOOTING.md
 ```
 
 ---
 
-## Controller Advice & AOP Logging
+## Troubleshooting
 
-### GlobalExceptionHandler (@RestControllerAdvice)
+See **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)** for:
 
-- **Role:** Centralized exception handling for all REST controllers.
-- **Behavior:** Catches `AuthenticationException`, `AccessDeniedException`, `UnsupportedExchangeException`, `EntityNotFoundException`, `MethodArgumentNotValidException`, `IllegalArgumentException`, and generic `Exception`.
-- **Response:** Builds an `ErrorResponse` (status, error, message, path, timestamp) and returns the appropriate HTTP status (401, 403, 400, 404, 500).
-- **Logging:** Logs warnings for auth/access failures and validation; debug for not-found/bad-request; error for unexpected exceptions.
-
-### LoggingAspect (AOP)
-
-- **Role:** Cross-cutting logging for controller, service, and security layers.
-- **Pointcuts:**
-  - `com.mohsindev.candilize.api..*` and `api.controller..*` (CONTROLLER)
-  - `com.mohsindev.candilize.service..*` (SERVICE)
-  - `com.mohsindev.candilize.security..*` (SECURITY)
-- **Behavior:** For each method invocation:
-  - Logs **entry** with layer, class name, method name, and **sanitized** arguments (passwords, tokens, etc. masked as `***`).
-  - Runs the method and measures **duration**.
-  - Logs **exit** with duration, or **exception** with duration and message.
-- **Configuration:** `AspectConfig` enables `@EnableAspectJAutoProxy` so that `LoggingAspect` is applied. Use `logging.level.com.mohsindev.candilize=DEBUG` to see entry/exit logs.
-
----
-
-## Testing the Full Flow
-
-1. **Register a user**
-   ```bash
-   curl -s -X POST http://localhost:8080/api/v1/auth/register \
-     -H "Content-Type: application/json" \
-     -d '{"username":"user1","email":"user1@test.com","password":"password123"}'
-   ```
-
-2. **Login and get JWT**
-   ```bash
-   curl -s -X POST http://localhost:8080/api/v1/auth/login \
-     -H "Content-Type: application/json" \
-     -d '{"username":"user1","password":"password123"}'
-   ```
-   Use the returned `accessToken` in the next steps.
-
-3. **Call protected endpoint (candles)**
-   ```bash
-   curl -s http://localhost:8080/api/v1/candles/BTCUSDT/1h?limit=10 \
-     -H "Authorization: Bearer <accessToken>"
-   ```
-
-4. **Admin: use seeded admin user** (if V3 migration created it: username `admin`, password `admin123`) to call `/api/v1/config/pairs`, `/api/v1/download`, etc., with the admin’s JWT.
-
-5. **Optional: testing mode** — set `app.testing-mode=true` to use dummy candle data from `TestCandleDataProvider` for all exchanges (no real API calls).
+- Spring Boot 4 migration (AOP starter, ObjectMapper, Netty DNS)
+- Build and Maven issues
+- Infrastructure (MySQL, MongoDB, Redis, Kafka) connectivity
 
 ---
 

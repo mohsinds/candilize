@@ -19,6 +19,13 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Redis cache configuration for candilize-market.
+ * Defines two named caches:
+ * - "candles": Candle query results from CandleQueryService (TTL: app.cache.candle-ttl, default 60s)
+ * - "schedulerConfig": Scheduler config fetched from auth service (TTL: 30s)
+ * Uses GenericJackson2JsonRedisSerializer with JavaTimeModule for proper serialization of domain objects.
+ */
 @Configuration
 public class CacheConfig {
 

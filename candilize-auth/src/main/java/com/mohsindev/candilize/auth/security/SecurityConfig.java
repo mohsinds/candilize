@@ -21,6 +21,13 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Security configuration for candilize-auth.
+ * - /api/v1/auth/**: Public (register, login, refresh).
+ * - /api/v1/internal/**: X-API-Key only (InternalApiKeyFilter, for market service).
+ * - /api/v1/config/**: JWT with ROLE_ADMIN.
+ * Filter order: InternalApiKeyFilter (for /internal/*) → JwtAuthenticationFilter (for JWT).
+ */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity

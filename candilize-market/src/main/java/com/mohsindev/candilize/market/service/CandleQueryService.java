@@ -12,6 +12,11 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Fetches candle data from MongoDB with optional Redis caching.
+ * @Cacheable("candles") caches results by (pair, interval, startTime, endTime, limit, exchange).
+ * Validates pair/interval via ConfigValidationService (which fetches scheduler config from auth).
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor

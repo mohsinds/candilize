@@ -10,6 +10,11 @@ import org.springframework.stereotype.Service;
 
 import java.util.concurrent.CompletableFuture;
 
+/**
+ * Produces messages to the get-price Kafka topic.
+ * Used by PriceDownloadScheduler (cron) and DownloadController/CacheController.
+ * Key: pair; Value: KafkaPriceRequest (pair, interval, limit, exchange).
+ */
 @Service
 @Slf4j
 @RequiredArgsConstructor

@@ -13,6 +13,11 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/**
+ * Downloads candle data from exchanges (Binance, MEXC) and persists to MongoDB.
+ * Invoked by KafkaConsumerService for each KafkaPriceRequest from get-price topic.
+ * Uses @Retryable for resilience (3 attempts, 2s backoff).
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor

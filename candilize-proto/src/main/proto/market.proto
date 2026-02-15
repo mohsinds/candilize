@@ -6,8 +6,8 @@ option java_multiple_files = true;
 option java_package = "com.mohsindev.candilize.proto.market";
 option java_outer_classname = "MarketProto";
 
-
-// Market service for fetching candle data (service-to-service)
+// Market gRPC service: fetch candle data (service-to-service).
+// Server: candilize-market. Client: candilize-technical.
 service MarketService {
   rpc GetCandles(GetCandlesRequest) returns (GetCandlesResponse);
 }

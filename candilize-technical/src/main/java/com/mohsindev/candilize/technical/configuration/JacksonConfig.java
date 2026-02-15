@@ -1,4 +1,4 @@
-package com.mohsindev.candilize.market.configuration;
+package com.mohsindev.candilize.technical.configuration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -7,9 +7,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Jackson configuration for JSON serialization.
- * Provides ObjectMapper used by AuthEntryPoint (401 responses), REST controllers, and Kafka JSON.
- * JavaTimeModule and WRITE_DATES_AS_TIMESTAMPS=false ensure ISO-8601 date formatting.
+ * Jackson configuration for JSON serialization in the technical analysis service.
+ * ObjectMapper used by AuthEntryPoint and REST controllers for consistent date formatting.
  */
 @Configuration
 public class JacksonConfig {

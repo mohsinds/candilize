@@ -6,7 +6,8 @@ option java_multiple_files = true;
 option java_package = "com.mohsindev.candilize.proto.auth";
 option java_outer_classname = "AuthProto";
 
-// Auth service for token validation and user lookup (service-to-service)
+// Auth gRPC service: token validation and user lookup (service-to-service).
+// Server: candilize-auth. Clients: candilize-market, candilize-technical.
 service AuthService {
   rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
   rpc GetUserByUsername(GetUserByUsernameRequest) returns (GetUserByUsernameResponse);
