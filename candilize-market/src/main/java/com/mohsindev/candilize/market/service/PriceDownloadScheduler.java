@@ -65,9 +65,9 @@ public class PriceDownloadScheduler {
         triggerForInterval("1w");
     }
 
-    @Scheduled(cron = "${app.scheduler.cron.1M}")
-    public void schedule1M() {
-        triggerForInterval("1M");
+    @Scheduled(cron = "${app.scheduler.cron.1mo}")
+    public void schedule1mo() {
+        triggerForInterval("1mo");
     }
 
     private void triggerForInterval(String intervalCode) {

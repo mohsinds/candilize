@@ -6,7 +6,7 @@ INSERT INTO supported_pairs (symbol, base_asset, quote_asset, enabled) VALUES
 ('XRPUSDT', 'XRP', 'USDT', TRUE),
 ('ADAUSDT', 'ADA', 'USDT', TRUE);
 
--- Seed supported intervals: 1m, 5m, 15m, 30m, 1h, 4h, 1d, 1w, 1M
+-- Seed supported intervals: 1m, 5m, 15m, 30m, 1h, 4h, 1d, 1w, 1mo (1M would collide with 1m in case-insensitive MySQL)
 INSERT INTO supported_intervals (interval_code, description, enabled) VALUES
 ('1m', '1 minute', TRUE),
 ('5m', '5 minutes', TRUE),
@@ -16,4 +16,4 @@ INSERT INTO supported_intervals (interval_code, description, enabled) VALUES
 ('4h', '4 hours', TRUE),
 ('1d', '1 day', TRUE),
 ('1w', '1 week', TRUE),
-('1M', '1 month', TRUE);
+('1mo', '1 month', TRUE);
