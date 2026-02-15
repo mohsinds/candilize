@@ -4,8 +4,8 @@ import com.mohsindev.candilize.proto.auth.AuthServiceGrpc;
 import com.mohsindev.candilize.proto.auth.ValidateTokenRequest;
 import com.mohsindev.candilize.proto.auth.ValidateTokenResponse;
 import io.grpc.StatusRuntimeException;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -16,10 +16,10 @@ import java.util.List;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class AuthGrpcClient {
 
-    @GrpcClient("auth")
-    private AuthServiceGrpc.AuthServiceBlockingStub authStub;
+    private final AuthServiceGrpc.AuthServiceBlockingStub authStub;
 
     public ValidateResult validateToken(String token) {
         if (token == null || token.isBlank()) {

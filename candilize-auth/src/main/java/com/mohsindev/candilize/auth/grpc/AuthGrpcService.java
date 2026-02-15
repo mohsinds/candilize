@@ -9,8 +9,8 @@ import com.mohsindev.candilize.proto.auth.ValidateTokenResponse;
 import io.grpc.stub.StreamObserver;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.devh.boot.grpc.server.service.GrpcService;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
  * Called by candilize-market and candilize-technical to validate JWT.
  */
 @Slf4j
-@GrpcService
+@Service
 @RequiredArgsConstructor
 public class AuthGrpcService extends AuthServiceGrpc.AuthServiceImplBase {
 

@@ -4,18 +4,18 @@ import com.mohsindev.candilize.proto.market.GetCandlesRequest;
 import com.mohsindev.candilize.proto.market.GetCandlesResponse;
 import com.mohsindev.candilize.proto.market.MarketServiceGrpc;
 import io.grpc.StatusRuntimeException;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class MarketGrpcClient {
 
-    @GrpcClient("market")
-    private MarketServiceGrpc.MarketServiceBlockingStub marketStub;
+    private final MarketServiceGrpc.MarketServiceBlockingStub marketStub;
 
     public List<com.mohsindev.candilize.proto.market.Candle> getCandles(
             String pair, String intervalCode, int limit, Long startTime, Long endTime, String exchange) {

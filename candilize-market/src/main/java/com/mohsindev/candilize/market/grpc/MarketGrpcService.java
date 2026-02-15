@@ -9,7 +9,6 @@ import com.mohsindev.candilize.proto.market.MarketServiceGrpc;
 import io.grpc.stub.StreamObserver;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.devh.boot.grpc.server.service.GrpcService;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -19,7 +18,7 @@ import java.util.List;
  * Called by candilize-technical to fetch candles for indicators/backtesting.
  */
 @Slf4j
-@GrpcService
+@Service
 @RequiredArgsConstructor
 public class MarketGrpcService extends MarketServiceGrpc.MarketServiceImplBase {
 
