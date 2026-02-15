@@ -27,7 +27,7 @@ public class CandleQueryService {
 
     @org.springframework.cache.annotation.Cacheable(
             value = "candles",
-            key = "#pair + ':' + #intervalCode + ':' + (#startTime != null ? #startTime : 0) + ':' + (#endTime != null ? #endTime : 9223372036854775807) + ':' + #limit + ':' + (#exchange != null && !#exchange.isBlank() ? #exchange : 'default')"
+            key = "#pair + ':' + #intervalCode + ':' + (#startTime != null ? #startTime : 0L) + ':' + (#endTime != null ? #endTime : T(java.lang.Long).MAX_VALUE) + ':' + #limit + ':' + (#exchange != null && !#exchange.isBlank() ? #exchange : 'default')"
     )
     public List<CandleResponse> getCandles(
             String pair,
