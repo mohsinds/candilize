@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package com.mohsindev.candilize.proto.auth;
+
+option java_multiple_files = true;
+option java_package = "com.mohsindev.candilize.proto.auth";
+option java_outer_classname = "AuthProto";
+
+// Auth service for token validation and user lookup (service-to-service)
+service AuthService {
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+  rpc GetUserByUsername(GetUserByUsernameRequest) returns (GetUserByUsernameResponse);
+}
+
+message ValidateTokenRequest {
+  string token = 1;
+}
+
+message ValidateTokenResponse {
+  bool valid = 1;
+  string username = 2;
+  repeated string roles = 3;
+  string error_message = 4;
+}
+
+message GetUserByUsernameRequest {
+  string username = 1;
+}
+
+message GetUserByUsernameResponse {
+  bool found = 1;
+  string username = 2;
+  repeated string roles = 3;
+}

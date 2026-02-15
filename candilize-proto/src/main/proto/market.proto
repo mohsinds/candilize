@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package com.mohsindev.candilize.proto.market;
+
+option java_multiple_files = true;
+option java_package = "com.mohsindev.candilize.proto.market";
+option java_outer_classname = "MarketProto";
+
+
+// Market service for fetching candle data (service-to-service)
+service MarketService {
+  rpc GetCandles(GetCandlesRequest) returns (GetCandlesResponse);
+}
+
+message GetCandlesRequest {
+  string pair = 1;
+  string interval_code = 2;
+  int32 limit = 3;
+  int64 start_time = 4;
+  int64 end_time = 5;
+  string exchange = 6;
+}
+
+message GetCandlesResponse {
+  repeated Candle candles = 1;
+}
+
+message Candle {
+  string symbol = 1;
+  string interval_code = 2;
+  int64 open_time = 3;
+  string open_price = 4;
+  string high_price = 5;
+  string low_price = 6;
+  string close_price = 7;
+  string volume = 8;
+  int64 close_time = 9;
+  string exchange = 10;
+}

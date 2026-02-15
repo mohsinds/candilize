@@ -1,0 +1,29 @@
+-- Users table for authentication
+CREATE TABLE users (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    role ENUM('ROLE_USER', 'ROLE_ADMIN') NOT NULL DEFAULT 'ROLE_USER',
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Supported trading pairs
+CREATE TABLE supported_pairs (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    symbol VARCHAR(20) NOT NULL UNIQUE,
+    base_asset VARCHAR(10) NOT NULL,
+    quote_asset VARCHAR(10) NOT NULL,
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Supported candle intervals
+CREATE TABLE supported_intervals (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    interval_code VARCHAR(5) NOT NULL UNIQUE,
+    description VARCHAR(50),
+    enabled BOOLEAN NOT NULL DEFAULT TRUE
+);
