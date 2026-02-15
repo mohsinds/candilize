@@ -42,6 +42,7 @@ public class SecurityConfig {
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(authEntryPoint))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health").permitAll()
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**").permitAll()
                         .requestMatchers("/api/v1/candles/**").authenticated()
                         .requestMatchers("/api/v1/cache/**").authenticated()
                         .requestMatchers("/api/v1/download/**").hasRole("ADMIN")
