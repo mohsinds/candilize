@@ -4,7 +4,8 @@
       "Bash(find:*)",
       "Bash(jar tf:*)",
       "Bash(javap:*)",
-      "Bash(unzip:*)"
+      "Bash(unzip:*)",
+      "Bash(mvn compile:*)"
     ]
   }
 }
