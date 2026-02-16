@@ -22,6 +22,10 @@
     </modules>
     <properties>
         <java.version>17</java.version>
+        <jacoco.version>0.8.12</jacoco.version>
+        <!-- SonarQube: vulnerability & quality gate validation (see sonar-project.properties) -->
+        <sonar.projectKey>candilize</sonar.projectKey>
+        <sonar.qualitygate.wait>true</sonar.qualitygate.wait>
     </properties>
     <build>
         <extensions>
@@ -31,6 +35,48 @@
                 <version>1.7.1</version>
             </extension>
         </extensions>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.jacoco</groupId>
+                    <artifactId>jacoco-maven-plugin</artifactId>
+                    <version>${jacoco.version}</version>
+                    <executions>
+                        <execution>
+                            <id>prepare-agent</id>
+                            <goals>
+                                <goal>prepare-agent</goal>
+                            </goals>
+                            <phase>test</phase>
+                            <configuration>
+                                <destFile>${project.build.directory}/jacoco.exec</destFile>
+                            </configuration>
+                        </execution>
+                        <execution>
+                            <id>report</id>
+                            <phase>verify</phase>
+                            <goals>
+                                <goal>report</goal>
+                            </goals>
+                            <configuration>
+                                <outputDirectory>${project.build.directory}/site/jacoco</outputDirectory>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.sonarsource.scanner.maven</groupId>
+                    <artifactId>sonar-maven-plugin</artifactId>
+                    <version>3.11.0.3922</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
     </build>
     <profiles>
         <profile>

@@ -1,0 +1,42 @@
+# CI: build, test, and optional SonarQube/SonarCloud analysis.
+# To enable Sonar: add repository secret SONAR_TOKEN (and optionally SONAR_HOST_URL for self-hosted SonarQube).
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+          cache: maven
+
+      - name: Build and run tests
+        run: mvn -B verify --no-transfer-progress
+
+      - name: SonarQube / SonarCloud scan (vulnerability & quality gate validation)
+        if: success()
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        run: |
+          if [ -n "$SONAR_TOKEN" ]; then
+            EXTRA_ARGS="-Dsonar.qualitygate.wait=true"
+            [ -n "$SONAR_HOST_URL" ] && EXTRA_ARGS="$EXTRA_ARGS -Dsonar.host.url=$SONAR_HOST_URL"
+            mvn -B sonar:sonar -Dsonar.token="$SONAR_TOKEN" $EXTRA_ARGS --no-transfer-progress
+          else
+            echo "SONAR_TOKEN not set; skipping SonarQube analysis."
+          fi
