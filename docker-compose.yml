@@ -1,0 +1,269 @@
+# =============================================================
+# docker-compose.yml — Candilize Full Local Stack
+# Place this at the ROOT of your Candilize project
+# Usage:
+#   docker compose up -d          # start all
+#   docker compose down           # stop all
+#   docker compose logs -f        # tail all logs
+#   docker compose logs -f candilize-auth  # tail one service
+# =============================================================
+
+services:
+
+  # ───────────────────────────────────────────────────────────
+  # INFRASTRUCTURE
+  # ───────────────────────────────────────────────────────────
+
+  mysql:
+    image: mysql:8.0
+    container_name: candilize-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: candilize1
+      MYSQL_USER: candilize
+      MYSQL_PASSWORD: candilize123
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - candilize-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpass"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  mongodb:
+    image: mongo:7.0
+    container_name: candilize-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: rootpass
+      MONGO_INITDB_DATABASE: candilize
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - candilize-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')", "--quiet"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: candilize-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - candilize-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: candilize-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - candilize-net
+    healthcheck:
+      test: ["CMD", "echo", "ruok", "|", "nc", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: candilize-kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # PLAINTEXT_HOST = accessible from your Mac (localhost:9092)
+      # PLAINTEXT      = accessible from other containers (kafka:29092)
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks:
+      - candilize-net
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # ───────────────────────────────────────────────────────────
+  # APPLICATION SERVICES
+  # ───────────────────────────────────────────────────────────
+
+  candilize-auth:
+    build:
+      context: .                          # root of project (all pom.xml files visible)
+      dockerfile: candilize-auth/Dockerfile
+    container_name: candilize-auth
+    ports:
+      - "8081:8081"   # HTTP REST
+      - "9090:9090"   # gRPC (token validation)
+    environment:
+      # MySQL
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/candilize1?useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: candilize
+      DB_PASSWORD: candilize123
+      # Redis
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      # JWT & API Key
+      JWT_SECRET: local-dev-jwt-secret-minimum-32-chars-long
+      INTERNAL_API_KEY: local-internal-api-key-secret
+      # Flyway
+      SPRING_FLYWAY_ENABLED: "true"
+      # Logging
+      LOGGING_LEVEL_ROOT: INFO
+      LOGGING_LEVEL_COM_MOHSINDEV: DEBUG
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - candilize-net
+    restart: on-failure
+
+  candilize-market:
+    build:
+      context: .
+      dockerfile: candilize-market/Dockerfile
+    container_name: candilize-market
+    ports:
+      - "8080:8080"   # HTTP REST
+      - "9091:9091"   # gRPC (GetCandles)
+    environment:
+      # MongoDB
+      MONGODB_URI: mongodb://root:rootpass@mongodb:27017/candilize?authSource=admin
+      SPRING_DATA_MONGODB_URI: mongodb://root:rootpass@mongodb:27017/candilize?authSource=admin
+      # Redis
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      # Kafka — use internal Docker network address (kafka:29092, NOT localhost:9092)
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      # Auth service
+      AUTH_SERVICE_URL: http://candilize-auth:8081
+      AUTH_GRPC_HOST: candilize-auth
+      AUTH_GRPC_PORT: 9090
+      INTERNAL_API_KEY: local-internal-api-key-secret
+      # Logging
+      LOGGING_LEVEL_ROOT: INFO
+      LOGGING_LEVEL_COM_MOHSINDEV: DEBUG
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      candilize-auth:
+        condition: service_started
+    networks:
+      - candilize-net
+    restart: on-failure
+
+  candilize-technical:
+    build:
+      context: .
+      dockerfile: candilize-technical/Dockerfile
+    container_name: candilize-technical
+    ports:
+      - "8082:8082"   # HTTP REST
+    environment:
+      # Market gRPC
+      MARKET_GRPC_HOST: candilize-market
+      MARKET_GRPC_PORT: 9091
+      # Auth gRPC (for token validation)
+      AUTH_GRPC_HOST: candilize-auth
+      AUTH_GRPC_PORT: 9090
+      JWT_SECRET: local-dev-jwt-secret-minimum-32-chars-long
+      # Logging
+      LOGGING_LEVEL_ROOT: INFO
+      LOGGING_LEVEL_COM_MOHSINDEV: DEBUG
+    depends_on:
+      candilize-auth:
+        condition: service_started
+      candilize-market:
+        condition: service_started
+    networks:
+      - candilize-net
+    restart: on-failure
+
+  # ───────────────────────────────────────────────────────────
+  # MONITORING (Grafana + Loki + Promtail)
+  # ───────────────────────────────────────────────────────────
+
+  loki:
+    image: grafana/loki:latest
+    container_name: candilize-loki
+    ports:
+      - "3100:3100"
+    networks:
+      - candilize-net
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: candilize-promtail
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./promtail-config.yaml:/etc/promtail/config.yaml
+    command: -config.file=/etc/promtail/config.yaml
+    depends_on:
+      - loki
+    networks:
+      - candilize-net
+
+  grafana:
+    image: grafana/grafana-oss
+    container_name: candilize-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin123
+      GF_FEATURE_TOGGLES_ENABLE: "true"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - loki
+    networks:
+      - candilize-net
+
+# ─────────────────────────────────────────────────────────────
+# VOLUMES & NETWORKS
+# ─────────────────────────────────────────────────────────────
+
+volumes:
+  mysql-data:
+  mongo-data:
+  redis-data:
+  grafana-data:
+
+networks:
+  candilize-net:
+    driver: bridge
