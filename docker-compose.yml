@@ -23,7 +23,7 @@ services:
       MYSQL_USER: candilize
       MYSQL_PASSWORD: candilize123
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - mysql-data:/var/lib/mysql
     networks:
@@ -132,7 +132,7 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       # JWT & API Key
-      JWT_SECRET: local-dev-jwt-secret-minimum-32-chars-long
+      JWT_SECRET: dGhpcyBpcyBhIHNlY3JldCBrZXkgZm9yIGRldmVsb3BtZW50IG9ubHk=
       INTERNAL_API_KEY: local-internal-api-key-secret
       # Flyway
       SPRING_FLYWAY_ENABLED: "true"

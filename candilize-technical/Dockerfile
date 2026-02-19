@@ -1,31 +1,32 @@
 # =============================================================
 # candilize-technical/Dockerfile
 # =============================================================
-# ─── Stage 1: Build ──────────────────────────────────────────
 FROM maven:3.9.6-eclipse-temurin-21 AS builder
 
-# Install protoc compiler (required by candilize-proto module)
 RUN apt-get update && apt-get install -y protobuf-compiler && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
 
-# ── Dependency caching layer ─────────────────────────────────
+# Copy ROOT pom + ALL module poms
 COPY pom.xml .
 COPY candilize-proto/pom.xml     candilize-proto/
+COPY candilize-auth/pom.xml      candilize-auth/
+COPY candilize-market/pom.xml    candilize-market/
 COPY candilize-technical/pom.xml candilize-technical/
 
 RUN mvn dependency:go-offline \
-    -pl candilize-proto,candilize-technical -am -q
+    -pl candilize-proto,candilize-technical -am \
+    --no-transfer-progress
 
-# ── Source copy & build ──────────────────────────────────────
 COPY candilize-proto/src     candilize-proto/src
 COPY candilize-technical/src candilize-technical/src
 
 RUN mvn clean package \
     -pl candilize-proto,candilize-technical -am \
-    -DskipTests -q
+    -DskipTests \
+    --no-transfer-progress
 
-# ─── Stage 2: Runtime ────────────────────────────────────────
+# =============================================================
 FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
@@ -40,7 +41,6 @@ RUN chown appuser:appgroup app.jar
 
 USER appuser
 
-# HTTP port only (gRPC client, not server)
 EXPOSE 8082
 
 ENTRYPOINT ["java", \
